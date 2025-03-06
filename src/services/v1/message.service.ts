@@ -90,23 +90,18 @@ class UserService {
     }
 
     async updateMessage({ $currentUser, params, body }: Partial<Request>) {
-        console.log({ $currentUser, params, body });
-        const { error, value: data } = Joi.object({
-            params: Joi.object({
-                messageId: Joi.string().trim().required().label("Message Id"),
-            }).required(),
-
+        const { error, value: data } = Joi.object({ 
             $currentUser: Joi.object({
-                _id: Joi.string().required(),
+                _id: Joi.required(),
             }).required(),
 
             body: Joi.object({
-                isRead: Joi.boolean().optional(),
                 type: Joi.string()
                     .valid(...Object.values(MessageType))
                     .optional()
                     .label("Message Type"),
-            }).optional(),
+                messageId: Joi.string().required(),
+            }).required(),
         })
             .options({ stripUnknown: true })
             .validate({ params, $currentUser, body });
@@ -114,11 +109,9 @@ class UserService {
 
         const user = await UserModel.findOne({ _id: data.$currentUser._id });
         if (!user) throw new CustomError("user not found", 404);
-
-        // const message = await MessageModel.findOneAndUpdate({ _id: data.params.messageId, recipient: user._id }, { isRead: true }, { new: true });
         const message = await MessageModel.findOneAndUpdate(
-            { _id: data.params.messageId, recipient: user._id },
-            { $set: { ...(data.body.isRead !== undefined && { isRead: data.body.isRead }), ...(data.body.type && { type: data.body.type }) } },
+            { _id: data.body.messageId, recipient: user._id },
+            { type: data.body.type},
             { new: true }
         );
     

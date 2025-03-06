@@ -8,7 +8,7 @@ const router: Router = Router();
 router.post("/send-message", authGuard(CONFIGS.APP_ROLES.USER), messageController.sendMessage);
 
 router.get("/open-message/:messageId", authGuard(CONFIGS.APP_ROLES.USER), messageController.openMessage);
-router.get("/update-message/:messageId", authGuard(CONFIGS.APP_ROLES.USER), messageController.updateMessageById);
+router.patch("/update-message", authGuard(CONFIGS.APP_ROLES.USER), messageController.updateMessageById);
 
 router.get("/user-messages", authGuard(CONFIGS.APP_ROLES.USER), messageController.userMessages);
 
