@@ -63,31 +63,62 @@ class UserService {
         return message;
     }
 
-    async getUserMessages({ $currentUser }: Partial<Request>) {
+
+    async getUserMessages({ $currentUser, query }: Partial<Request>) {
+        console.log({ $currentUser, query });
         const { error, value: data } = Joi.object({
             $currentUser: Joi.object({
                 _id: Joi.required(),
-            }),
+            }).required(),
+            query: Joi.object({
+                search: Joi.string().optional().allow(""),
+                type: Joi.string()
+                    .valid(...Object.values(MessageType))
+                    .optional(),
+                page: Joi.number().min(1).default(1),
+                limit: Joi.number().min(1).max(100).default(20),
+            }).default({}),
         })
             .options({ stripUnknown: true })
-            .validate({ $currentUser });
+            .validate({ $currentUser, query });
+    
         if (error) throw new CustomError(error.message, 400);
-
+    
         const user = await UserModel.findOne({ _id: data.$currentUser._id });
-        if (!user) throw new CustomError("user not found", 404);
-        const messagesCount = await MessageModel.countDocuments({ recipient: user._id });
-
-        const unReadCount = await MessageModel.countDocuments({ recipient: user._id, isRead: false });
-
-        // query for message by id and return result
-
-        const messages = await MessageModel.find({ recipient: user._id }).populate("sender", "first_name last_name image");
+        if (!user) throw new CustomError("User not found", 404);
+    
+        const { search, type, page=1, limit=10 } = query as any;
+    
+        const filter: any = { recipient: user._id };
+    
+        if (type) {
+            filter.type = type;
+        }
+    
+        if (search) {
+            filter.$or = [
+                { content: { $regex: search, $options: "i" } },
+                { subject: { $regex: search, $options: "i" } },
+            ];
+        }
+    
+        const messagesCount = await MessageModel.countDocuments(filter);
+        const unReadCount = await MessageModel.countDocuments({ ...filter, isRead: false })
+        const messages = await MessageModel.find(filter)
+            .populate("sender", "first_name last_name image")
+            .sort({ createdAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit);
+    
         return {
             messages,
             messagesCount,
             unReadCount,
+            page,
+            limit,
         };
     }
+    
 
     async updateMessage({ $currentUser, params, body }: Partial<Request>) {
         const { error, value: data } = Joi.object({ 
