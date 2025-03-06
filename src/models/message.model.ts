@@ -1,6 +1,10 @@
 import mongoose, { Document, Schema, Types } from "mongoose";
 import { IUser } from "./user.model";
 
+export enum MessageType {
+    DRAFT = "draft"
+}
+
 // Define the IMessage interface
 export interface IMessage extends Document {
     subject: string;
@@ -10,6 +14,7 @@ export interface IMessage extends Document {
     isRead: boolean;
     created_at?: Date;
     updated_at?: Date;
+    type?: MessageType;
 }
 
 // Define the IMessage schema
@@ -37,7 +42,7 @@ export const messageSchema: Schema<IMessage> = new Schema(
             required: true,
         },
 
-        isRead: {
+        type: {
             type: Boolean,
             default: false,
         },
