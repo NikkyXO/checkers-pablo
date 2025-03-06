@@ -3,7 +3,7 @@ import { Request } from "express";
 
 import UserModel from "@/models/user.model";
 import CustomError from "@/utilities/custom-error";
-import MessageModel from "@/models/message.model";
+import MessageModel, { MessageType } from "@/models/message.model";
 
 class UserService {
     async getCurrentUser({ $currentUser }: Partial<Request>) {
@@ -15,22 +15,34 @@ class UserService {
             .options({ stripUnknown: true })
             .validate({ $currentUser });
         if (error) throw new CustomError(error.message, 400);
-
-        // Check if user exists
         const user = await UserModel.findOne({ _id: data.$currentUser._id });
         if (!user) throw new CustomError("user not found", 404);
 
-        // get user messages count
         const messagesCount = await MessageModel.countDocuments({ recipient: user._id });
-
-        // get  unread Messages Count
-
         const unReadCount = await MessageModel.countDocuments({ recipient: user._id, isRead: false });
+
+        // Get message count grouped by MessageType
+    const messagesByType = await MessageModel.aggregate([
+        { $match: { recipient: user._id } },
+        { $group: { _id: "$type", count: { $sum: 1 } } },
+    ]);
+
+    const messageTypeStats: Record<MessageType, number> = Object.values(MessageType).reduce((acc, type) => {
+        acc[type] = 0;
+        return acc;
+    }, {} as Record<MessageType, number>);
+
+    messagesByType.forEach(({ _id, count }) => {
+        if (_id in messageTypeStats) {
+            messageTypeStats[_id as MessageType] = count;
+        }
+    });
 
         return {
             user,
             messagesCount,
             unReadCount,
+            messageTypeStats,
         };
     }
 
